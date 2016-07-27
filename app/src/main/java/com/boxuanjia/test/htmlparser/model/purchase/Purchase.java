@@ -1,4 +1,4 @@
-package com.boxuanjia.test.htmlparser.model;
+package com.boxuanjia.test.htmlparser.model.purchase;
 
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;

@@ -1,14 +1,22 @@
 package com.boxuanjia.test.htmlparser;
 
 import android.annotation.SuppressLint;
+import android.app.ProgressDialog;
+import android.content.DialogInterface;
 import android.os.Bundle;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.view.View;
+import android.widget.Button;
+import android.widget.TextView;
+import android.widget.Toast;
 
-import com.boxuanjia.test.htmlparser.model.Purchase;
-import com.boxuanjia.test.htmlparser.model.Purchases;
-import com.boxuanjia.test.htmlparser.model.PurchasesInfo;
-import com.boxuanjia.test.htmlparser.model.RegularCartItem;
+import com.boxuanjia.test.htmlparser.model.history.BettingHistory;
+import com.boxuanjia.test.htmlparser.model.purchase.Purchase;
+import com.boxuanjia.test.htmlparser.model.purchase.Purchases;
+import com.boxuanjia.test.htmlparser.model.purchase.PurchasesInfo;
+import com.boxuanjia.test.htmlparser.model.purchase.RegularCartItem;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.loopj.android.http.AsyncHttpClient;
@@ -30,12 +38,10 @@ import cz.msebera.android.httpclient.entity.StringEntity;
 @SuppressLint("LongLogTag")
 public class MainActivity extends AppCompatActivity {
 
-    private static final String TAG = "MainActivity";
-
     // 足球1 篮球2 美式橄榄球3 网球6 棒球7 冰上曲棍球8 特别9
     private static final int TYPE = 2;
 
-    private static final String POST_LOGIN = "http://m.10bo1010.com/pagemethods.aspx/Login";
+    private static final String GET_BETTING_HISTORY = "http://m.10bo1010.com/methods/bettinghistory.ashx/getUserOpenBets";
 
     private static final String POST_BRANCH_DATA_FOR_MOBILE = "http://m.10bo1010.com/pagemethods.aspx/GetBranchDataForMobile";
 
@@ -51,6 +57,8 @@ public class MainActivity extends AppCompatActivity {
 
     /*PATTERN*/
 
+    private final String PATTERN_BETTING_HISTORY = "\\{.*\\}";
+
     private final String PATTERN_LEAGUEID = "\\[[0-9]{5},\"(.[^,]*?)\",[0-9]{1,},[0-9]{1,},[0-9]{1,},[0-9]{1,},[0-9]{1,},[0-9]{1,},1,[0-9]{1,},[0-9]{1,},\"(.[^,]*?)\"\\]";
 
     private final String PATTERN_MASTEREVENTID = "\\[[0-9]{7},\".*?\",\".*?\",[0-9]{1,},";
@@ -59,25 +67,27 @@ public class MainActivity extends AppCompatActivity {
 
     private final String PATTERN_EVENTID = "\\[[0-9]{8},662\\]";
 
-    private final String PATTERN_UPDATE = "\"updated\":\".*?\"";
-
     private final String PATTERN_SOURCE = "],.*?,.*?,";
+
+    private final String PATTERN_UPDATE = "\"updated\":\".*?\"";
 
     private final String PATTERN_LINEID = "\\[[0-9]{9},.*?\\]";
 
     private final String PATTERN_REGULAR_CART_ITEMS = ":\\{.*?\\}";
 
-    private final String ACCOUNT = "cheersgo";
+    private static final int STEP_0 = 0;
 
-    private final String PASSWORD = "9488598";
+    private static final int STEP_1 = 1;
+
+    private static final int STEP_2 = 2;
+
+    private static final int STEP_3 = 3;
+
+    private int step = 0;
 
     private ArrayList<String> leagueList = new ArrayList<>();
 
     private ArrayList<String> mastereventList = new ArrayList<>();
-
-    private int indexLeague = 0;
-
-    private int indexMaster = 0;
 
     private String update;
 
@@ -89,48 +99,79 @@ public class MainActivity extends AppCompatActivity {
 
     private int lineId;
 
+    private TextView mTextContent;
+
+    private ProgressDialog mDialog;
+
     private AsyncHttpClient client;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        // 初始化
-        init();
-        // 请求登录
-        getUserInfo();
-    }
-
-    private void init() {
-        client = new AsyncHttpClient();
-        client.setEnableRedirects(false);
-        client.addHeader("RequestTarget", "AJAXService");
-        client.addHeader("Origin", "http://m.10bo1010.com");
-        client.addHeader("User-Agent", "Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MTC19V) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.81 Mobile Safari/537.36");
-        client.addHeader("Accept", "*/*");
-        client.addHeader("Referer", "http://m.10bo1010.com");
-        client.addHeader("Accept-Encoding", "gzip, deflate");
-        client.addHeader("Accept-Language", "en-US,en;q=0.8,zh-CN;q=0.6,zh;q=0.4");
-        client.addHeader("Connection", "keep-alive");
-    }
-
-    private void getUserInfo() {
-        RequestParams params = new RequestParams();
-        params.put("__userName", ACCOUNT);
-        params.put("password", PASSWORD);
-        client.post(POST_LOGIN, params, new TextHttpResponseHandler() {
+        mTextContent = (TextView) findViewById(R.id.text_content);
+        Button btnNext = (Button) findViewById(R.id.btn_next);
+        btnNext.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onFailure(int statusCode, Header[] headers, String responseString, Throwable throwable) {
-                Log.d("getUserInfo", "onFailure");
+            public void onClick(View view) {
+                switch (step) {
+                    case STEP_0:
+                        getBettingHistory();
+                        break;
+                    case STEP_1:
+                        getBranchDataForMobile();
+                        break;
+                    case STEP_2:
+                        openLeagueContentDialog();
+                        break;
+                    case STEP_3:
+                        openMasterEventDialog();
+                        break;
+                }
             }
+        });
+        mDialog = new ProgressDialog(this);
+        mDialog.setCancelable(false);
+        client = ((MyApplication) getApplication()).getClient();
+    }
+
+    private void getBettingHistory() {
+        mDialog.show();
+        client.get(GET_BETTING_HISTORY, new TextHttpResponseHandler() {
 
             @Override
             public void onSuccess(int statusCode, Header[] headers, String responseString) {
-                Log.d("getUserInfo", "onSuccess");
+                mDialog.dismiss();
+                Log.d("getBettingHistory", "onSuccess");
                 Document doc = Jsoup.parse(responseString);
-                Log.d("getUserInfo", doc.outerHtml());
-                getBranchDataForMobile();
+                Log.d("getBettingHistory", doc.body().text());
+                Pattern r = Pattern.compile(PATTERN_BETTING_HISTORY);
+                Matcher m = r.matcher(doc.body().text());
+                if (m.find()) {
+                    Gson gson = new Gson();
+                    BettingHistory bettingHistory = gson.fromJson(m.group(), BettingHistory.class);
+                    if (bettingHistory.getSPBets() != null && bettingHistory.getSPBets().size() > 0) {
+                        String temp = "";
+                        for (int i = 0; i < bettingHistory.getSPBets().get(0).getSelections().size(); i++) {
+                            temp += bettingHistory.getSPBets().get(0).getSelections().get(i).getLink();
+                        }
+                        mTextContent.setText(String.format("%s%s\n", mTextContent.getText(), temp));
+                    } else {
+                        step = STEP_1;
+                        mTextContent.setText(String.format("%s%s\n", mTextContent.getText(), "无尚未结算投注"));
+                    }
+                }
             }
+
+            @Override
+            public void onFailure(int statusCode, Header[] headers, String responseString, Throwable throwable) {
+                mDialog.dismiss();
+                Log.d("getBettingHistory", "onFailure");
+                Document doc = Jsoup.parse(responseString);
+                Log.d("getBettingHistory", doc.outerHtml());
+                Toast.makeText(MainActivity.this, "获取尚未结算投注失败", Toast.LENGTH_SHORT).show();
+            }
+
         });
     }
 
@@ -147,14 +188,17 @@ public class MainActivity extends AppCompatActivity {
                 Pattern r = Pattern.compile(PATTERN_LEAGUEID);
                 Matcher m = r.matcher(doc.body().text());
                 leagueList.clear();
-                indexLeague = 0;
+                String temp = "";
                 while (m.find()) {
                     Log.d("getBranchDataForMobile", m.group());
-                    leagueList.add(m.group().substring(1, 6));
+                    leagueList.add(m.group());
+                    temp += m.group() + "\n";
                 }
                 if (leagueList.size() > 0) {
-                    Log.d("getBranchDataForMobile", leagueList.get(0));
-                    getLeagueContentForMobile(leagueList.get(0));
+                    step = STEP_2;
+                    mTextContent.setText(String.format("%s%s\n", mTextContent.getText(), temp));
+                } else {
+                    mTextContent.setText(String.format("%s%s\n", mTextContent.getText(), "无正在滚球的联赛"));
                 }
             }
 
@@ -166,6 +210,20 @@ public class MainActivity extends AppCompatActivity {
             }
 
         });
+    }
+
+    private void openLeagueContentDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("选择要投注的联赛");
+        String[] names = new String[leagueList.size()];
+        leagueList.toArray(names);
+        builder.setItems(names, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                getLeagueContentForMobile(leagueList.get(i).substring(1, 6));
+            }
+        });
+        builder.show();
     }
 
     private void getLeagueContentForMobile(String leagueId) {
@@ -181,23 +239,21 @@ public class MainActivity extends AppCompatActivity {
                 Pattern p = Pattern.compile(PATTERN_MASTEREVENTID);
                 Matcher m = p.matcher(doc.body().text());
                 mastereventList.clear();
-                indexMaster = 0;
+                String temp = "";
                 while (m.find()) {
                     Pattern pFix = Pattern.compile(PATTERN_MASTEREVENTID_FIX);
                     Matcher mFix = pFix.matcher(m.group());
                     while (mFix.find()) {
                         Log.d("getLeagueContentForMobile", mFix.group());
-                        mastereventList.add(mFix.group().substring(1, 8));
+                        mastereventList.add(mFix.group());
+                        temp += m.group() + "\n";
                     }
                 }
                 if (mastereventList.size() > 0) {
-                    Log.d("getLeagueContentForMobile", mastereventList.get(0));
-                    getMasterEventForMobile(mastereventList.get(0));
+                    step = STEP_3;
+                    mTextContent.setText(String.format("%s%s\n", mTextContent.getText(), temp));
                 } else {
-                    indexLeague++;
-                    if (indexLeague < leagueList.size()) {
-                        getLeagueContentForMobile(leagueList.get(indexLeague));
-                    }
+                    mTextContent.setText(String.format("%s%s\n", mTextContent.getText(), "无正在滚球的比赛"));
                 }
             }
 
@@ -209,6 +265,20 @@ public class MainActivity extends AppCompatActivity {
             }
 
         });
+    }
+
+    private void openMasterEventDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("选择要投注的比赛");
+        String[] names = new String[mastereventList.size()];
+        mastereventList.toArray(names);
+        builder.setItems(names, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                getMasterEventForMobile(mastereventList.get(i).substring(1, 8));
+            }
+        });
+        builder.show();
     }
 
     private void getMasterEventForMobile(String masterEventID) {
@@ -227,12 +297,12 @@ public class MainActivity extends AppCompatActivity {
                 Pattern r1 = Pattern.compile(PATTERN_SOURCE);
                 Matcher m1 = r1.matcher(doc.body().text());
                 if (m1.find()) {
-                    Log.d("updateLiveEvents", m1.group());
+                    Log.d("getMasterEventForMobile", m1.group());
 
                     String s0 = m1.group().substring(m1.group().indexOf(",") + 1, m1.group().indexOf(",", m1.group().indexOf(",") + 1));
-                    Log.d("updateLiveEvents", "s0=" + s0);
+                    Log.d("getMasterEventForMobile", "s0=" + s0);
                     String s1 = m1.group().substring(m1.group().indexOf(",", m1.group().indexOf(",") + 1) + 1, m1.group().lastIndexOf(","));
-                    Log.d("updateLiveEvents", "s1=" + s1);
+                    Log.d("getMasterEventForMobile", "s1=" + s1);
                     source[0] = Integer.valueOf(s0);
                     source[1] = Integer.valueOf(s1);
                 }
@@ -245,22 +315,11 @@ public class MainActivity extends AppCompatActivity {
                 }
                 Pattern r = Pattern.compile(PATTERN_EVENTID);
                 Matcher m = r.matcher(doc.body().text());
-                boolean find = false;
-                while (m.find()) {
-                    find = true;
+                if (m.find()) {
                     Log.d("getMasterEventForMobile", m.group());
                     updateLiveEvents(m.group().substring(1, 9));
-                }
-                if (!find) {
-                    indexMaster++;
-                    if (indexMaster < mastereventList.size()) {
-                        getMasterEventForMobile(mastereventList.get(indexMaster));
-                    } else {
-                        indexLeague++;
-                        if (indexLeague < leagueList.size()) {
-                            getLeagueContentForMobile(leagueList.get(indexLeague));
-                        }
-                    }
+                } else {
+                    mTextContent.setText(String.format("%s%s\n", mTextContent.getText(), "无单双可以下注"));
                 }
             }
 
@@ -287,19 +346,14 @@ public class MainActivity extends AppCompatActivity {
                 Log.d("updateLiveEvents", doc.outerHtml());
                 Pattern r = Pattern.compile(PATTERN_LINEID);
                 Matcher m = r.matcher(doc.body().text());
-                boolean isOdd = true;
                 int index = 0;
-                String oddOrEven[] = new String[2];
+                String[] oddOrEven = new String[2];
                 while (m.find()) {
                     Log.d("updateLiveEvents", m.group());
                     oddOrEven[index] = m.group().substring(1, 10);
                     index++;
                 }
-                if (isOdd) {
-                    getRegularCartItems(oddOrEven[0]);
-                } else {
-                    getRegularCartItems(oddOrEven[1]);
-                }
+                openRegularCartItemsDialog(oddOrEven);
             }
 
             @Override
@@ -310,6 +364,21 @@ public class MainActivity extends AppCompatActivity {
             }
 
         });
+    }
+
+    private void openRegularCartItemsDialog(final String[] oddOrEven) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("选择要投注的单双");
+        String[] names = new String[oddOrEven.length];
+        names[0] = "单";
+        names[1] = "双";
+        builder.setItems(names, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                getRegularCartItems(oddOrEven[i]);
+            }
+        });
+        builder.show();
     }
 
     private void getRegularCartItems(final String lineID) {
@@ -454,6 +523,7 @@ public class MainActivity extends AppCompatActivity {
                 Log.d("placeMultiPurchase", "onSuccess");
                 Document doc = Jsoup.parse(responseString);
                 Log.d("placeMultiPurchase", doc.outerHtml());
+                mTextContent.setText(String.format("%s%s\n", mTextContent.getText(), doc.outerHtml()));
             }
 
             @Override

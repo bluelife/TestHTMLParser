@@ -1,14 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    tools:context="com.boxuanjia.test.htmlparser.MainActivity">
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+                xmlns:tools="http://schemas.android.com/tools"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                tools:context="com.boxuanjia.test.htmlparser.MainActivity">
 
-    <TextView
-        android:id="@+id/text_content"
+    <Button
+        android:id="@+id/btn_next"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
+        android:layout_height="48dp"
+        android:layout_alignParentBottom="true"
+        android:text="下一步"/>
 
-</ScrollView>
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_above="@id/btn_next">
+
+        <TextView
+            android:id="@+id/text_content"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+
+    </ScrollView>
+
+</RelativeLayout>
+
