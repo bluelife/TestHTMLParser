@@ -1,8 +1,8 @@
 package com.boxuanjia.test.htmlparser;
 
 import android.annotation.SuppressLint;
-import android.app.ProgressDialog;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.os.Bundle;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
@@ -10,9 +10,7 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
-import android.widget.Toast;
 
-import com.boxuanjia.test.htmlparser.model.history.BettingHistory;
 import com.boxuanjia.test.htmlparser.model.purchase.Purchase;
 import com.boxuanjia.test.htmlparser.model.purchase.Purchases;
 import com.boxuanjia.test.htmlparser.model.purchase.PurchasesInfo;
@@ -23,6 +21,8 @@ import com.loopj.android.http.AsyncHttpClient;
 import com.loopj.android.http.RequestParams;
 import com.loopj.android.http.TextHttpResponseHandler;
 
+import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 
@@ -41,12 +41,6 @@ public class MainActivity extends AppCompatActivity {
     // 足球1 篮球2 美式橄榄球3 网球6 棒球7 冰上曲棍球8 特别9
     private static final int TYPE = 2;
 
-    private static final String GET_BETTING_HISTORY = "http://m.10bo1010.com/methods/bettinghistory.ashx/getUserOpenBets";
-
-    private static final String POST_BRANCH_DATA_FOR_MOBILE = "http://m.10bo1010.com/pagemethods.aspx/GetBranchDataForMobile";
-
-    private static final String POST_LEAGUE_CONTENT_FOR_MOBILE = "http://m.10bo1010.com/pagemethods.aspx/GetLeagueContentForMobile";
-
     private static final String GET_LIVE_MASTER_EVENT = "http://m.10bo1010.com/methods/masterevents.ashx/getLiveMasterEvent";
 
     private static final String POST_UPDATE_LIVE_EVENTS = "http://m.10bo1010.com/pagemethods.aspx/updateLiveEvents";
@@ -57,14 +51,6 @@ public class MainActivity extends AppCompatActivity {
 
     /*PATTERN*/
 
-    private final String PATTERN_BETTING_HISTORY = "\\{.*\\}";
-
-    private final String PATTERN_LEAGUEID = "\\[[0-9]{5},\"(.[^,]*?)\",[0-9]{1,},[0-9]{1,},[0-9]{1,},[0-9]{1,},[0-9]{1,},[0-9]{1,},1,[0-9]{1,},[0-9]{1,},\"(.[^,]*?)\"\\]";
-
-    private final String PATTERN_MASTEREVENTID = "\\[[0-9]{7},\".*?\",\".*?\",[0-9]{1,},";
-
-    private final String PATTERN_MASTEREVENTID_FIX = "\\[[0-9]{7},\".*?\",\".*?\",[0-9]{1},";
-
     private final String PATTERN_EVENTID = "\\[[0-9]{8},662\\]";
 
     private final String PATTERN_SOURCE = "],.*?,.*?,";
@@ -74,20 +60,6 @@ public class MainActivity extends AppCompatActivity {
     private final String PATTERN_LINEID = "\\[[0-9]{9},.*?\\]";
 
     private final String PATTERN_REGULAR_CART_ITEMS = ":\\{.*?\\}";
-
-    private static final int STEP_0 = 0;
-
-    private static final int STEP_1 = 1;
-
-    private static final int STEP_2 = 2;
-
-    private static final int STEP_3 = 3;
-
-    private int step = 0;
-
-    private ArrayList<String> leagueList = new ArrayList<>();
-
-    private ArrayList<String> mastereventList = new ArrayList<>();
 
     private String update;
 
@@ -101,173 +73,46 @@ public class MainActivity extends AppCompatActivity {
 
     private TextView mTextContent;
 
-    private ProgressDialog mDialog;
-
     private AsyncHttpClient client;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        EventBus.getDefault().register(this);
         setContentView(R.layout.activity_main);
         mTextContent = (TextView) findViewById(R.id.text_content);
-        Button btnNext = (Button) findViewById(R.id.btn_next);
-        btnNext.setOnClickListener(new View.OnClickListener() {
+        Button btnExit = (Button) findViewById(R.id.btn_exit);
+        btnExit.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                switch (step) {
-                    case STEP_0:
-                        getBettingHistory();
-                        break;
-                    case STEP_1:
-                        getBranchDataForMobile();
-                        break;
-                    case STEP_2:
-                        openLeagueContentDialog();
-                        break;
-                    case STEP_3:
-                        openMasterEventDialog();
-                        break;
-                }
+                finish();
+                Intent intent = new Intent(MainActivity.this, MainService.class);
+                stopService(intent);
             }
         });
-        mDialog = new ProgressDialog(this);
-        mDialog.setCancelable(false);
+        // 启动服务
+        Intent intent = new Intent(MainActivity.this, MainService.class);
+        startService(intent);
         client = ((MyApplication) getApplication()).getClient();
     }
 
-    private void getBettingHistory() {
-        mDialog.show();
-        client.get(GET_BETTING_HISTORY, new TextHttpResponseHandler() {
-
-            @Override
-            public void onSuccess(int statusCode, Header[] headers, String responseString) {
-                mDialog.dismiss();
-                Log.d("getBettingHistory", "onSuccess");
-                Document doc = Jsoup.parse(responseString);
-                Log.d("getBettingHistory", doc.body().text());
-                Pattern r = Pattern.compile(PATTERN_BETTING_HISTORY);
-                Matcher m = r.matcher(doc.body().text());
-                if (m.find()) {
-                    Gson gson = new Gson();
-                    BettingHistory bettingHistory = gson.fromJson(m.group(), BettingHistory.class);
-                    if (bettingHistory.getSPBets() != null && bettingHistory.getSPBets().size() > 0) {
-                        String temp = "";
-                        for (int i = 0; i < bettingHistory.getSPBets().get(0).getSelections().size(); i++) {
-                            temp += bettingHistory.getSPBets().get(0).getSelections().get(i).getLink();
-                        }
-                        mTextContent.setText(String.format("%s%s\n", mTextContent.getText(), temp));
-                    } else {
-                        step = STEP_1;
-                        mTextContent.setText(String.format("%s%s\n", mTextContent.getText(), "无尚未结算投注"));
-                    }
-                }
-            }
-
-            @Override
-            public void onFailure(int statusCode, Header[] headers, String responseString, Throwable throwable) {
-                mDialog.dismiss();
-                Log.d("getBettingHistory", "onFailure");
-                Document doc = Jsoup.parse(responseString);
-                Log.d("getBettingHistory", doc.outerHtml());
-                Toast.makeText(MainActivity.this, "获取尚未结算投注失败", Toast.LENGTH_SHORT).show();
-            }
-
-        });
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        EventBus.getDefault().unregister(this);
     }
 
-    private void getBranchDataForMobile() {
-        RequestParams params = new RequestParams();
-        params.put("branchId", TYPE);
-        client.post(POST_BRANCH_DATA_FOR_MOBILE, params, new TextHttpResponseHandler() {
-
-            @Override
-            public void onSuccess(int statusCode, Header[] headers, String responseString) {
-                Log.d("getBranchDataForMobile", "onSuccess");
-                Document doc = Jsoup.parse(responseString);
-                Log.d("getBranchDataForMobile", doc.body().text());
-                Pattern r = Pattern.compile(PATTERN_LEAGUEID);
-                Matcher m = r.matcher(doc.body().text());
-                leagueList.clear();
-                String temp = "";
-                while (m.find()) {
-                    Log.d("getBranchDataForMobile", m.group());
-                    leagueList.add(m.group());
-                    temp += m.group() + "\n";
-                }
-                if (leagueList.size() > 0) {
-                    step = STEP_2;
-                    mTextContent.setText(String.format("%s%s\n", mTextContent.getText(), temp));
-                } else {
-                    mTextContent.setText(String.format("%s%s\n", mTextContent.getText(), "无正在滚球的联赛"));
-                }
-            }
-
-            @Override
-            public void onFailure(int statusCode, Header[] headers, String responseString, Throwable throwable) {
-                Log.d("getBranchDataForMobile", "onFailure");
-                Document doc = Jsoup.parse(responseString);
-                Log.d("getBranchDataForMobile", doc.outerHtml());
-            }
-
-        });
+    @Subscribe
+    public void eventBusList(ArrayList<String> mastereventList) {
+        openMasterEventDialog(mastereventList);
     }
 
-    private void openLeagueContentDialog() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("选择要投注的联赛");
-        String[] names = new String[leagueList.size()];
-        leagueList.toArray(names);
-        builder.setItems(names, new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialogInterface, int i) {
-                getLeagueContentForMobile(leagueList.get(i).substring(1, 6));
-            }
-        });
-        builder.show();
+    @Subscribe
+    public void eventBusMessage(String message) {
+        mTextContent.setText(String.format("%s\n%s", mTextContent.getText(), message));
     }
 
-    private void getLeagueContentForMobile(String leagueId) {
-        RequestParams params = new RequestParams();
-        params.put("leagueId", leagueId);
-        client.post(POST_LEAGUE_CONTENT_FOR_MOBILE, params, new TextHttpResponseHandler() {
-
-            @Override
-            public void onSuccess(int statusCode, Header[] headers, String responseString) {
-                Log.d("getLeagueContentForMobile", "onSuccess");
-                Document doc = Jsoup.parse(responseString);
-                Log.d("getLeagueContentForMobile", doc.body().text());
-                Pattern p = Pattern.compile(PATTERN_MASTEREVENTID);
-                Matcher m = p.matcher(doc.body().text());
-                mastereventList.clear();
-                String temp = "";
-                while (m.find()) {
-                    Pattern pFix = Pattern.compile(PATTERN_MASTEREVENTID_FIX);
-                    Matcher mFix = pFix.matcher(m.group());
-                    while (mFix.find()) {
-                        Log.d("getLeagueContentForMobile", mFix.group());
-                        mastereventList.add(mFix.group());
-                        temp += m.group() + "\n";
-                    }
-                }
-                if (mastereventList.size() > 0) {
-                    step = STEP_3;
-                    mTextContent.setText(String.format("%s%s\n", mTextContent.getText(), temp));
-                } else {
-                    mTextContent.setText(String.format("%s%s\n", mTextContent.getText(), "无正在滚球的比赛"));
-                }
-            }
-
-            @Override
-            public void onFailure(int statusCode, Header[] headers, String responseString, Throwable throwable) {
-                Log.d("getLeagueContentForMobile", "onFailure");
-                Document doc = Jsoup.parse(responseString);
-                Log.d("getLeagueContentForMobile", doc.outerHtml());
-            }
-
-        });
-    }
-
-    private void openMasterEventDialog() {
+    private void openMasterEventDialog(final ArrayList<String> mastereventList) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("选择要投注的比赛");
         String[] names = new String[mastereventList.size()];

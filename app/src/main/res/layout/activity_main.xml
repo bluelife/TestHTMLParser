@@ -6,16 +6,16 @@
                 tools:context="com.boxuanjia.test.htmlparser.MainActivity">
 
     <Button
-        android:id="@+id/btn_next"
+        android:id="@+id/btn_exit"
         android:layout_width="match_parent"
         android:layout_height="48dp"
         android:layout_alignParentBottom="true"
-        android:text="下一步"/>
+        android:text="退出"/>
 
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_above="@id/btn_next">
+        android:layout_above="@id/btn_exit">
 
         <TextView
             android:id="@+id/text_content"
