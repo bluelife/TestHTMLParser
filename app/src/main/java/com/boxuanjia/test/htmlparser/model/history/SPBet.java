@@ -276,7 +276,7 @@ public class SPBet {
     /**
      * 
      * @param selections
-     *     The Selections
+     *     The Failures
      */
     public void setSelections(List<Selection> selections) {
         this.selections = selections;

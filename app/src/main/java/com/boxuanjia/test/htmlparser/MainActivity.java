@@ -26,9 +26,9 @@ public class MainActivity extends AppCompatActivity {
         btnExit.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                finish();
                 Intent intent = new Intent(MainActivity.this, MainService.class);
                 stopService(intent);
+                finish();
             }
         });
         // 启动服务

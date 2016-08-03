@@ -10,6 +10,7 @@ import android.support.annotation.Nullable;
 import android.text.TextUtils;
 import android.util.Log;
 
+import com.boxuanjia.test.htmlparser.model.failure.Failures;
 import com.boxuanjia.test.htmlparser.model.history.BettingHistory;
 import com.boxuanjia.test.htmlparser.model.purchase.Purchase;
 import com.boxuanjia.test.htmlparser.model.purchase.Purchases;
@@ -81,6 +82,8 @@ public class MainService extends Service {
     private final String PATTERN_EVENTID = "\\[[0-9]{8},662\\]";
 
     private static final long TIME = 3 * 60 * 1000;
+
+    private static final long TIME_INIT = 15 * 1000;
 
     private static final int STEP_INIT = 0;
 
@@ -264,7 +267,6 @@ public class MainService extends Service {
                 Log.d("getLeagueContentForMobile", "onSuccess");
                 Document doc = Jsoup.parse(responseString);
                 Log.d("getLeagueContentForMobile", doc.body().text());
-                EventBus.getDefault().post(doc.body().text());
                 Pattern p = Pattern.compile(PATTERN_MASTEREVENTID);
                 Matcher m = p.matcher(doc.body().text());
                 while (m.find()) {
@@ -527,8 +529,31 @@ public class MainService extends Service {
                 Log.d("placeMultiPurchase", "onSuccess");
                 Document doc = Jsoup.parse(responseString);
                 Log.d("placeMultiPurchase", doc.outerHtml());
-                EventBus.getDefault().post("投注成功");
-                init();
+
+                // 去掉[]
+                String temp = responseString.substring(1, responseString.length() - 1);
+                Gson gson = new Gson();
+                if (temp.charAt(2) == 'B') {// 成功
+                    EventBus.getDefault().post("投注成功");
+                } else if (temp.charAt(2) == 'S') {// 失败
+                    Failures selections = gson.fromJson(temp, Failures.class);
+                    if (!TextUtils.isEmpty(selections.getSelections().get(0).getErrorMessage())) {
+                        EventBus.getDefault().post("投注失败原因:" + selections.getSelections().get(0).getErrorMessage());
+                    }
+                }
+                mSingleThreadExecutor.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            Thread.sleep(TIME_INIT);
+                            Message message = mHandler.obtainMessage();
+                            message.arg1 = STEP_INIT;
+                            mHandler.sendMessage(message);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                });
             }
 
             @Override
