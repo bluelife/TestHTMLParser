@@ -53,7 +53,7 @@ public class Bet {
     }
 
     /**
-     * 
+     *
      * @return
      *     The commission
      */
@@ -62,7 +62,7 @@ public class Bet {
     }
 
     /**
-     * 
+     *
      * @param commission
      *     The Commission
      */
@@ -71,7 +71,7 @@ public class Bet {
     }
 
     /**
-     * 
+     *
      * @return
      *     The currentBalance
      */
@@ -80,7 +80,7 @@ public class Bet {
     }
 
     /**
-     * 
+     *
      * @param currentBalance
      *     The CurrentBalance
      */
@@ -89,7 +89,7 @@ public class Bet {
     }
 
     /**
-     * 
+     *
      * @return
      *     The deadHeatDeposit
      */
@@ -98,7 +98,7 @@ public class Bet {
     }
 
     /**
-     * 
+     *
      * @param deadHeatDeposit
      *     The DeadHeatDeposit
      */
@@ -107,7 +107,7 @@ public class Bet {
     }
 
     /**
-     * 
+     *
      * @return
      *     The generatedID
      */
@@ -116,7 +116,7 @@ public class Bet {
     }
 
     /**
-     * 
+     *
      * @param generatedID
      *     The GeneratedID
      */
@@ -125,7 +125,7 @@ public class Bet {
     }
 
     /**
-     * 
+     *
      * @return
      *     The profitLoss
      */
@@ -134,7 +134,7 @@ public class Bet {
     }
 
     /**
-     * 
+     *
      * @param profitLoss
      *     The ProfitLoss
      */
@@ -143,7 +143,7 @@ public class Bet {
     }
 
     /**
-     * 
+     *
      * @return
      *     The statusID
      */
@@ -152,7 +152,7 @@ public class Bet {
     }
 
     /**
-     * 
+     *
      * @param statusID
      *     The StatusID
      */
@@ -161,7 +161,7 @@ public class Bet {
     }
 
     /**
-     * 
+     *
      * @return
      *     The taxAmount
      */
@@ -170,7 +170,7 @@ public class Bet {
     }
 
     /**
-     * 
+     *
      * @param taxAmount
      *     The TaxAmount
      */
@@ -179,7 +179,7 @@ public class Bet {
     }
 
     /**
-     * 
+     *
      * @return
      *     The taxPercent
      */
@@ -188,7 +188,7 @@ public class Bet {
     }
 
     /**
-     * 
+     *
      * @param taxPercent
      *     The TaxPercent
      */

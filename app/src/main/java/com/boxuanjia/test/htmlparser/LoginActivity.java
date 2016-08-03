@@ -31,7 +31,7 @@ public class LoginActivity extends AppCompatActivity {
 
     private static final String USER_INFO = "USER_INFO";
 
-    private static final String URL_LOGIN = "http://m.10bo1010.com/pagemethods.aspx/Login";
+    private static final String URL_LOGIN = "http://m.10bet100.com/pagemethods.aspx/Login";
 
     private static final String PARAMS_ACCOUNT = "__userName";
 
