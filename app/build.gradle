@@ -5,7 +5,7 @@ android {
     buildToolsVersion "24.0.1"
 
     defaultConfig {
-        applicationId "com.boxuanjia.test.htmlparser"
+        applicationId "com.boxuanjia.autobet"
         minSdkVersion 15
         targetSdkVersion 24
         versionCode 1
@@ -33,4 +33,6 @@ dependencies {
     compile group: 'com.google.code.gson', name: 'gson', version: '2.6.2'
     /*eventbus*/
     compile 'org.greenrobot:eventbus:3.0.0'
+    /*umeng*/
+    compile 'com.umeng.analytics:analytics:latest.integration'
 }
