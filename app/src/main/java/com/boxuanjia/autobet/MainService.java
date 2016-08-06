@@ -32,7 +32,10 @@ import org.jsoup.nodes.Document;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
+import java.util.Locale;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -100,7 +103,7 @@ public class MainService extends Service {
 
     private static final int STEP_INIT = 0;
 
-    public AsyncHttpClient client;
+    private AsyncHttpClient client;
 
     private ArrayList<String> leagueList = new ArrayList<>();
 
@@ -118,6 +121,10 @@ public class MainService extends Service {
 
     private int lineId;
 
+    private boolean start;
+
+    private String message;
+
     private ExecutorService mSingleThreadExecutor = Executors.newSingleThreadExecutor();
 
     private MainHandler mHandler = new MainHandler(this);
@@ -130,9 +137,25 @@ public class MainService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        client = AutoBetClient.INSTANCE.getClient();
-        init();
+        if (!start) {
+            Log.d("onStartCommand", "onStartCommand");
+            start = true;
+            message = "";
+            client = AutoBetClient.INSTANCE.getClient();
+            init();
+        }
         return super.onStartCommand(intent, flags, startId);
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        Log.d("onDestroy", "onDestroy");
+        start = false;
+        message = "";
+        mSingleThreadExecutor.shutdownNow();
+        client.cancelAllRequests(true);
+        stopSelf();
     }
 
     public void handleMessage(Message msg) {
@@ -196,7 +219,8 @@ public class MainService extends Service {
                 Log.d("setGetFullUserInfo", doc.body().text());
                 Gson gson = new Gson();
                 UserInfo userInfo = gson.fromJson(responseString, UserInfo.class);
-                EventBus.getDefault().post("账户余额:" + userInfo.getBalance());
+                message = String.format("%s\n%s\n%s", message, getSystemTime(), "账户余额:" + userInfo.getBalance());
+                EventBus.getDefault().post(message);
                 getBettingHistory();
             }
 
@@ -225,7 +249,11 @@ public class MainService extends Service {
                     Gson gson = new Gson();
                     BettingHistory bettingHistory = gson.fromJson(m.group(), BettingHistory.class);
                     if (bettingHistory.getSPBets() != null && bettingHistory.getSPBets().size() > 0) {
-                        EventBus.getDefault().post("有尚未结算的投注,3分种后重试.");
+                        message = String.format("%s\n%s\n%s", message, getSystemTime(), "有尚未结算的投注,3分种后重试.");
+                        EventBus.getDefault().post(message);
+                        if (mSingleThreadExecutor.isShutdown()) {
+                            return;
+                        }
                         mSingleThreadExecutor.execute(new Runnable() {
                             @Override
                             public void run() {
@@ -278,7 +306,11 @@ public class MainService extends Service {
                 if (leagueList.size() > 0) {
                     getLeagueContentForMobile(leagueList.get(0).substring(1, 6));
                 } else {
-                    EventBus.getDefault().post("无滚球,3分种后重试.");
+                    message = String.format("%s\n%s\n%s", message, getSystemTime(), "无滚球,3分种后重试.");
+                    EventBus.getDefault().post(message);
+                    if (mSingleThreadExecutor.isShutdown()) {
+                        return;
+                    }
                     mSingleThreadExecutor.execute(new Runnable() {
                         @Override
                         public void run() {
@@ -389,7 +421,8 @@ public class MainService extends Service {
                     Log.d("getMasterEventForMobile", m.group());
                     updateLiveEvents(m.group().substring(1, 9));
                 } else {
-                    EventBus.getDefault().post("无单双可以下注");
+                    message = String.format("%s\n%s\n%s", message, getSystemTime(), "无单双可以下注");
+                    EventBus.getDefault().post(message);
                 }
             }
 
@@ -585,12 +618,17 @@ public class MainService extends Service {
                 String temp = responseString.substring(1, responseString.length() - 1);
                 Gson gson = new Gson();
                 if (temp.charAt(2) == 'B') {// 成功
-                    EventBus.getDefault().post("投注成功");
+                    message = String.format("%s\n%s\n%s", message, getSystemTime(), "投注成功");
+                    EventBus.getDefault().post(message);
                 } else if (temp.charAt(2) == 'S') {// 失败
                     Failures selections = gson.fromJson(temp, Failures.class);
                     if (!TextUtils.isEmpty(selections.getSelections().get(0).getErrorMessage())) {
-                        EventBus.getDefault().post("投注失败原因:" + selections.getSelections().get(0).getErrorMessage());
+                        message = String.format("%s\n%s\n%s", message, getSystemTime(), "投注失败原因:" + selections.getSelections().get(0).getErrorMessage());
+                        EventBus.getDefault().post(message);
                     }
+                }
+                if (mSingleThreadExecutor.isShutdown()) {
+                    return;
                 }
                 mSingleThreadExecutor.execute(new Runnable() {
                     @Override
@@ -615,6 +653,11 @@ public class MainService extends Service {
             }
 
         });
+    }
+
+    private String getSystemTime() {
+        SimpleDateFormat format = new SimpleDateFormat("yyyy年MM月dd日HH:mm:ss", Locale.getDefault());
+        return format.format(new Date(System.currentTimeMillis()));
     }
 
     private static class MainHandler extends Handler {

@@ -10,10 +10,6 @@ import android.widget.TextView;
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Locale;
-
 @SuppressLint("LongLogTag")
 public class MainActivity extends BaseActivity {
 
@@ -48,12 +44,7 @@ public class MainActivity extends BaseActivity {
 
     @Subscribe
     public void eventBusMessage(String message) {
-        mTextContent.setText(String.format("%s\n%s\n%s", mTextContent.getText(), getSystemTime(), message));
-    }
-
-    private String getSystemTime() {
-        SimpleDateFormat format = new SimpleDateFormat("yyyy年MM月dd日HH:mm:ss", Locale.getDefault());
-        return format.format(new Date(System.currentTimeMillis()));
+        mTextContent.setText(message);
     }
 
 }
