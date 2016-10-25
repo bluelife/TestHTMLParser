@@ -295,14 +295,16 @@ public class MainService extends Service {
                 Log.d("getBranchDataForMobile", "onSuccess");
                 Document doc = Jsoup.parse(responseString);
                 Log.d("getBranchDataForMobile", doc.body().text());
-                Pattern r = Pattern.compile(PATTERN_LEAGUEID);
+                Pattern r = Pattern.compile("(\\[.*?\\d\\])");
                 Matcher m = r.matcher(doc.body().text());
                 leagueList.clear();
                 indexLeague = 0;
                 while (m.find()) {
-                    Log.d("getBranchDataForMobile", m.group());
+                    //Log.d("getBranchDataForMobile", m.group());
                     leagueList.add(m.group());
                 }
+                //first item is useless.
+                leagueList.remove(0);
                 if (leagueList.size() > 0) {
                     getLeagueContentForMobile(leagueList.get(0).substring(1, 6));
                 } else {
@@ -383,6 +385,9 @@ public class MainService extends Service {
         });
     }
 
+    //(\d{3},"第.节单.{9}) 获取比赛竞猜为单节单双
+    //(\d{3},"单方球队单.{12})
+    //[{"Bets":[{"BetID":0,"BetName":null,"BetTypeID":7,"ComboSize":0,"Dividend":0,"Divisor":0,"FreeBetID":0,"FreeBetStake":0,"Gain":9.54,"IsLive":0,"Mappings":[{"SelectionID":0,"ViewKey":0}],"MaxBet":10000,"NumberOfBets":1,"Odds":-110,"Stake":5}],"ComboBonuses":{},"Deposit":5,"NumberOfBets":1,"OddStyleID":1,"PurchaseID":"345705800","Selections":[{"LineID":273505872,"Odds":-110,"Points":null,"QAParameter1":0,"QAParameter2":11,"ViewKey":0}],"Status":1}]
     private void getMasterEventForMobile(String masterEventID) {
         masterEventId = Integer.valueOf(masterEventID);
         RequestParams params = new RequestParams();
@@ -486,13 +491,14 @@ public class MainService extends Service {
                 Pattern r = Pattern.compile(PATTERN_REGULAR_CART_ITEMS);
                 Matcher m = r.matcher(doc.body().text());
                 if (m.find()) {
-                    try {
+                    Log.d("getregular",m.group());
+                    /*try {
                         String json = m.group().substring(1);
                         Gson gson = new Gson();
                         placeMultiPurchase(gson.fromJson(json, RegularCartItem.class));
                     } catch (UnsupportedEncodingException e) {
                         e.printStackTrace();
-                    }
+                    }*/
                 }
             }
 
