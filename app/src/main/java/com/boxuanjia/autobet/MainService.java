@@ -11,6 +11,10 @@ import android.support.annotation.Nullable;
 import android.text.TextUtils;
 import android.util.Log;
 
+import com.boxuanjia.autobet.event.EmptyOddsEvent;
+import com.boxuanjia.autobet.event.LiveIdEvent;
+import com.boxuanjia.autobet.event.OddsEndUpdateEvent;
+import com.boxuanjia.autobet.event.OddsQuardUpdateEvent;
 import com.boxuanjia.autobet.http.AutoBetClient;
 import com.boxuanjia.autobet.model.failure.Failures;
 import com.boxuanjia.autobet.model.history.BettingHistory;
@@ -19,7 +23,11 @@ import com.boxuanjia.autobet.model.purchase.Purchase;
 import com.boxuanjia.autobet.model.purchase.Purchases;
 import com.boxuanjia.autobet.model.purchase.PurchasesInfo;
 import com.boxuanjia.autobet.model.purchase.RegularCartItem;
+import com.boxuanjia.autobet.model.purchase.RegularRequest;
+import com.boxuanjia.autobet.model.purchase.RegularRequestQuar;
 import com.boxuanjia.autobet.model.userinfo.UserInfo;
+import com.boxuanjia.autobet.service.LiveMaster;
+import com.boxuanjia.autobet.service.LiveMatch;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.loopj.android.http.AsyncHttpClient;
@@ -27,6 +35,7 @@ import com.loopj.android.http.RequestParams;
 import com.loopj.android.http.TextHttpResponseHandler;
 
 import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 
@@ -35,6 +44,7 @@ import java.net.URLEncoder;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
@@ -153,6 +163,7 @@ public class MainService extends Service {
         Log.d("onDestroy", "onDestroy");
         start = false;
         message = "";
+        EventBus.getDefault().unregister(this);
         mSingleThreadExecutor.shutdownNow();
         client.cancelAllRequests(true);
         stopSelf();
@@ -176,6 +187,7 @@ public class MainService extends Service {
         update = "";
         eventId = 0;
         lineId = 0;
+        EventBus.getDefault().register(this);
         requestLogin();
     }
 
@@ -268,7 +280,8 @@ public class MainService extends Service {
                             }
                         });
                     } else {
-                        getBranchDataForMobile();
+                        //getBranchDataForMobile();
+                        getLiveMatch();
                     }
                 }
             }
@@ -283,6 +296,69 @@ public class MainService extends Service {
             }
 
         });
+    }
+
+    private void getLiveMatch(){
+        LiveMatch liveMatch=new LiveMatch(client);
+        liveMatch.load();
+    }
+    List<RegularRequest> regularRequests;
+
+    List<String> liveIds;
+    @Subscribe
+    public void onLiveMatchEvent(LiveIdEvent liveIdEvent){
+        Log.w("onLiveMatchEvent",liveIdEvent.ids.size()+"");
+        liveIds=liveIdEvent.ids;
+        oddsEndUpdateEvents.clear();
+        oddsQuardUpdateEvents.clear();
+        if(liveIds.size()>0){
+            regularRequests=new ArrayList<>();
+            LiveMaster liveMaster=new LiveMaster(client,liveIdEvent.ids.get(0));
+            liveMaster.load();
+
+        }
+        else{
+            message = String.format("%s\n%s\n%s", message, getSystemTime(), "无滚球,3分种后重试.");
+            EventBus.getDefault().post(message);
+            if (mSingleThreadExecutor.isShutdown()) {
+                return;
+            }
+            mSingleThreadExecutor.execute(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        Thread.sleep(TIME);
+                        Message message = mHandler.obtainMessage();
+                        message.arg1 = STEP_INIT;
+                        mHandler.sendMessage(message);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+            });
+        }
+    }
+    List<OddsEndUpdateEvent> oddsEndUpdateEvents=new ArrayList<>();
+    List<OddsQuardUpdateEvent> oddsQuardUpdateEvents=new ArrayList<>();
+    @Subscribe
+    public void onGetOddsEndBet(OddsEndUpdateEvent updateEvent){
+        oddsEndUpdateEvents.add(updateEvent);
+        checkLiveIdsTask();
+    }
+
+    @Subscribe
+    public void onGetEmptyOdds(EmptyOddsEvent emptyOddsEvent){
+        checkLiveIdsTask();
+    }
+    private void checkLiveIdsTask(){
+        liveIds.remove(0);
+        if(liveIds.size()>0){
+            LiveMaster liveMaster=new LiveMaster(client,liveIds.get(0));
+            liveMaster.load();
+        }
+        else{
+
+        }
     }
 
     private void getBranchDataForMobile() {
@@ -308,24 +384,7 @@ public class MainService extends Service {
                 if (leagueList.size() > 0) {
                     getLeagueContentForMobile(leagueList.get(0).substring(1, 6));
                 } else {
-                    message = String.format("%s\n%s\n%s", message, getSystemTime(), "无滚球,3分种后重试.");
-                    EventBus.getDefault().post(message);
-                    if (mSingleThreadExecutor.isShutdown()) {
-                        return;
-                    }
-                    mSingleThreadExecutor.execute(new Runnable() {
-                        @Override
-                        public void run() {
-                            try {
-                                Thread.sleep(TIME);
-                                Message message = mHandler.obtainMessage();
-                                message.arg1 = STEP_INIT;
-                                mHandler.sendMessage(message);
-                            } catch (InterruptedException e) {
-                                e.printStackTrace();
-                            }
-                        }
-                    });
+
                 }
             }
 
