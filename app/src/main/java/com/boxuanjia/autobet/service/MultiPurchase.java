@@ -1,5 +1,6 @@
 package com.boxuanjia.autobet.service;
 
+import android.content.Context;
 import android.os.Message;
 import android.text.TextUtils;
 import android.util.Log;
@@ -44,8 +45,15 @@ public class MultiPurchase extends BaseTask {
     private static final String PATTERN_REGULAR_CART_ITEMS = ":\\{.*?\\}";
     List<OddsEndUpdateEvent> oddsEndUpdateEvents;
     List<OddsQuardUpdateEvent> oddsQuardUpdateEvents;
-    public MultiPurchase(AsyncHttpClient client,List<OddsEndUpdateEvent> oddsEndUpdateEvents,List<OddsQuardUpdateEvent> oddsQuardUpdateEvents) {
+    private int[] source;
+    private String update;
+    private Context context;
+    public MultiPurchase(Context context, AsyncHttpClient client, List<OddsEndUpdateEvent> oddsEndUpdateEvents
+            , List<OddsQuardUpdateEvent> oddsQuardUpdateEvents,int[] source,String update) {
         super(client);
+        this.context=context;
+        this.update=update;
+        this.source=source;
         this.oddsEndUpdateEvents=oddsEndUpdateEvents;
         this.oddsQuardUpdateEvents=oddsQuardUpdateEvents;
     }
@@ -125,9 +133,9 @@ public class MultiPurchase extends BaseTask {
         ArrayList<Purchase> items = new ArrayList<>();
         Purchase purchase = new Purchase();
 
-        purchase.setMasterEventID(masterEventId);
-        purchase.setEventID(eventId);
-        purchase.setLineID(lineId);
+        //purchase.setMasterEventID(masterEventId);
+        //purchase.setEventID(eventId);
+        //purchase.setLineID(lineId);
         purchase.setValid(true);
         purchase.set_final(false);
         purchase.setMinBet(0.442358238950334);
@@ -218,7 +226,7 @@ public class MultiPurchase extends BaseTask {
         } catch (UnsupportedEncodingException e) {
             e.printStackTrace();
         }
-        client.post(this, POST_MULTI_PURCHASE, stringEntity, "application/json; charset=utf-8", new TextHttpResponseHandler() {
+        client.post(context, POST_MULTI_PURCHASE, stringEntity, "application/json; charset=utf-8", new TextHttpResponseHandler() {
 
             @Override
             public void onSuccess(int statusCode, Header[] headers, String responseString) {

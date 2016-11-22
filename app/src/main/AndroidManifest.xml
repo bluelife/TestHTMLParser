@@ -20,6 +20,9 @@
         <activity
             android:name=".LaunchActivity"
             android:theme="@style/AppTheme.NoTitle">
+
+        </activity>
+        <activity android:name=".TestActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
 

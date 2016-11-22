@@ -1,5 +1,7 @@
 package com.boxuanjia.autobet.event;
 
+import com.boxuanjia.autobet.model.purchase.OddsQuartData;
+
 import java.util.List;
 
 /**
@@ -7,8 +9,8 @@ import java.util.List;
  */
 
 public class OddsQuardUpdateEvent {
-    public List<OddsQuardUpdateEvent> oddsQuardUpdateEvents;
-    public OddsQuardUpdateEvent(List<OddsQuardUpdateEvent> updateEvents){
+    public List<OddsQuartData> oddsQuardUpdateEvents;
+    public OddsQuardUpdateEvent(List<OddsQuartData> updateEvents){
         oddsQuardUpdateEvents=updateEvents;
     }
 }
