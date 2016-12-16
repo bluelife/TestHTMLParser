@@ -13,6 +13,10 @@ import android.widget.Toast;
 
 import com.boxuanjia.autobet.http.AutoBetClient;
 import com.boxuanjia.autobet.model.login.Login;
+import com.boxuanjia.autobet.model.login.LoginItem;
+import com.boxuanjia.autobet.model.login.ResultItem;
+import com.boxuanjia.autobet.model.user.UserManager;
+import com.boxuanjia.autobet.service.ServiceManager;
 import com.google.gson.Gson;
 import com.loopj.android.http.RequestParams;
 import com.loopj.android.http.TextHttpResponseHandler;
@@ -21,6 +25,9 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 
 import cz.msebera.android.httpclient.Header;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 /**
  * Created by boxuanjia on 16/7/27.
@@ -84,18 +91,43 @@ public class LoginActivity extends BaseActivity {
                 Gson gson = new Gson();
                 editor.putString(MainService.USER_INFO, gson.toJson(login)).apply();
 
-                Intent intent = new Intent(LoginActivity.this, MainActivity.class);
-                startActivity(intent);
-                finish();
+                doLogin();
             }
 
             @Override
             public void onFailure(int statusCode, Header[] headers, String responseString, Throwable throwable) {
                 mDialog.dismiss();
                 Log.d("getUserInfo", "onFailure");
-                Toast.makeText(LoginActivity.this, "登录失败", Toast.LENGTH_SHORT).show();
+                loginError();
             }
 
+        });
+    }
+
+    private void loginError(){
+        Toast.makeText(LoginActivity.this, "登录失败", Toast.LENGTH_SHORT).show();
+    }
+    private void doLogin() {
+        LoginItem loginItem=new LoginItem();
+        loginItem.login="admin@admin.com";
+        loginItem.password="9488598";
+        Call<ResultItem> call= ServiceManager.instance().getApi().login(loginItem);
+        call.enqueue(new Callback<ResultItem>() {
+            @Override
+            public void onResponse(Call<ResultItem> call, Response<ResultItem> response) {
+                ResultItem resultItem=response.body();
+                Log.d("login",resultItem.data.name);
+                UserManager.instance().setId(resultItem.data.userId);
+                Intent intent = new Intent(LoginActivity.this, MainActivity.class);
+                startActivity(intent);
+                finish();
+            }
+
+            @Override
+            public void onFailure(Call<ResultItem> call, Throwable t) {
+                Log.d("login","t"+t);
+                loginError();
+            }
         });
     }
 

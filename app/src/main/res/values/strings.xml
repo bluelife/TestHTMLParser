@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">10Bet</string>
+    <string name="download_title">下载</string>
+    <string name="zip_downloading">更新包下载中。。。</string>
 </resources>

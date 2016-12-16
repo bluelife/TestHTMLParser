@@ -29,12 +29,14 @@ public class LiveMaster extends BaseTask {
     private String update;
     private String score1;
     private String score2;
+    private static final String[] ODDS_IDES=new String[]{"665","666","667","668","669"};
     private static final String ODDS_END_ID="669";
-    private final String PATTERN_FIND_ODDS_END="\\[\\d{8},"+ODDS_END_ID;
+    private final String PATTERN_FIND_ODDS="\\[\\d{8},";
     private final String PATTERN_FIND_ODDS_QUARTER="\\[\\d{8},(665|666|667|668)";
     private final String PATTERN_FIND_UPDATE="\\[[0-9]{9},.*?\\]";
     private final String PATTERN_FIND_UPDATE_DATE="\"updated\":\".*?\"";
     private final String PATTERN_FIND_SCORE="\\d{1,4},\\d{1,4},";
+    private final String PATTERN_FIND_HAS_ODDS="\\[[0-9]{8,9},66\\d{1},\\[\\[\\d{7,10},-111,.*?,,,,";
     public LiveMaster(AsyncHttpClient client,String id) {
         super(client);
         eventId=id;
@@ -53,10 +55,9 @@ public class LiveMaster extends BaseTask {
 
             @Override
             public void onSuccess(int statusCode, Header[] headers, String responseString) {
-                Pattern pattern = Pattern.compile(PATTERN_FIND_ODDS_END);
-                Matcher matcher = pattern.matcher(responseString);
-                if(matcher.find()){
-                    subEventId=matcher.group().substring(1,matcher.group().indexOf(","));
+                String requeset=getUpdateRequest(responseString);
+                if(!requeset.equals("")){
+                    //subEventId=matcher.group().substring(1,matcher.group().indexOf(","));
                     Pattern p2=Pattern.compile(PATTERN_FIND_UPDATE_DATE);
                     Matcher m2=p2.matcher(responseString);
                     if(m2.find()){
@@ -71,39 +72,65 @@ public class LiveMaster extends BaseTask {
                             score2 = scores[1];
                         }
                     }
-                    updateLiveEventEnd(subEventId);
+                    updateLiveEventEnd(requeset);
 
                 }
                 else{
                     EventBus.getDefault().post(new EmptyOddsEvent());
                 }
+
             }
         });
     }
-    private void updateLiveEventEnd(String id){
+    private String getUpdateRequest(String content){
+        String request="";
+
+        for (int i = 0; i < ODDS_IDES.length; i++) {
+            Pattern pattern = Pattern.compile(PATTERN_FIND_ODDS+ODDS_IDES[i]);
+            Matcher matcher = pattern.matcher(content);
+            if(matcher.find()){
+                String childId=matcher.group().substring(1,matcher.group().indexOf(","));
+                request+=childId+"#"+ODDS_IDES[i];
+                request+=i<ODDS_IDES.length-1?"@":"";
+            }
+        }
+        return request;
+    }
+    private void updateLiveEventEnd(String request){
         RequestParams params = new RequestParams();
-        params.put("requestString", id + "#" + ODDS_END_ID);
+        params.put("requestString", request);
+        Log.d("request",request);
         client.post(WebApi.UPDATE_LIVE_EVENTS, params, new TextHttpResponseHandler() {
             @Override
             public void onFailure(int statusCode, Header[] headers, String responseString, Throwable throwable) {
                 EventBus.getDefault().post(new EmptyOddsEvent());
+
             }
 
             @Override
             public void onSuccess(int statusCode, Header[] headers, String responseString) {
-                Pattern pattern = Pattern.compile(PATTERN_FIND_UPDATE);
-                Matcher matcher = pattern.matcher(responseString);
-                List<OddsEndData> oddsEndDataList=new ArrayList<OddsEndData>();
-                while (matcher.find()){
-                    String[] data=matcher.group().substring(1,matcher.group().length()-1).split(",");
-                    OddsEndData oddsEndData=new OddsEndData();
-                    oddsEndData.data=data;
-                    oddsEndData.eventId=eventId;
-                    oddsEndData.subEventId=subEventId;
-                    Log.w("updateLiveEventEnd",matcher.group().substring(1,matcher.group().length()-1)+",eventid "+subEventId);
-                    oddsEndDataList.add(oddsEndData);
+                Pattern getOddsPattern=Pattern.compile(PATTERN_FIND_HAS_ODDS);
+                Matcher oddsMatcher=getOddsPattern.matcher(responseString);
+                Log.w("updatelive",responseString);
+                while (oddsMatcher.find()){
+                    String oddsId=oddsMatcher.group().split(",")[1];
+                    Log.w("findodds",oddsId);
+                    Pattern pattern = Pattern.compile(PATTERN_FIND_UPDATE);
+                    Matcher matcher = pattern.matcher(oddsMatcher.group());
+                    List<OddsEndData> oddsEndDataList=new ArrayList<OddsEndData>();
+                    while (matcher.find()){
+                        String[] data=matcher.group().substring(1,matcher.group().length()-1).split(",");
+                        OddsEndData oddsEndData=new OddsEndData();
+                        oddsEndData.data=data;
+                        oddsEndData.eventId=eventId;
+                        oddsEndData.subEventId=oddsId;
+                        oddsEndData.isEnd=oddsId.equals("669");
+                        Log.w("updateLiveEventEnd",matcher.group().substring(1,matcher.group().length()-1)+",eventid "+oddsId);
+                        oddsEndDataList.add(oddsEndData);
+                    }
                 }
-                EventBus.getDefault().post(new OddsEndUpdateEvent(oddsEndDataList));
+
+                //EventBus.getDefault().post(new OddsEndUpdateEvent(oddsEndDataList));
             }
         });
     }

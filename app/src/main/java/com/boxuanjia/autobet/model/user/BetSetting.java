@@ -24,6 +24,10 @@ public class BetSetting extends BaseResult{
         public int maxLevel;
         @Json(name="thread_count")
         public int threadCount;
+        @Json(name = "acc_bal")
+        public float totalBalance;
+        @Json(name = "out_bal")
+        public float remindBalance;
         public String team;
         public String type;
         @Json(name = "levels_money")

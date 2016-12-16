@@ -8,5 +8,5 @@ import com.squareup.moshi.Json;
 
 public class Balance {
     @Json(name="left_count")
-    public int count;
+    public float count;
 }

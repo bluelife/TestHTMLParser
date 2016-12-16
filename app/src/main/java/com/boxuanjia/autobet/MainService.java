@@ -25,7 +25,11 @@ import com.boxuanjia.autobet.model.purchase.PurchasesInfo;
 import com.boxuanjia.autobet.model.purchase.RegularCartItem;
 import com.boxuanjia.autobet.model.purchase.RegularRequest;
 import com.boxuanjia.autobet.model.purchase.RegularRequestQuar;
+import com.boxuanjia.autobet.model.user.AccountInfo;
+import com.boxuanjia.autobet.model.user.BetSetting;
+import com.boxuanjia.autobet.model.user.Record;
 import com.boxuanjia.autobet.model.userinfo.UserInfo;
+import com.boxuanjia.autobet.service.ApiCaller;
 import com.boxuanjia.autobet.service.LiveMaster;
 import com.boxuanjia.autobet.service.LiveMatch;
 import com.google.gson.Gson;
@@ -54,6 +58,9 @@ import java.util.regex.Pattern;
 
 import cz.msebera.android.httpclient.Header;
 import cz.msebera.android.httpclient.entity.StringEntity;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 /**
  * Created by boxuanjia on 16/7/27.
@@ -112,6 +119,7 @@ public class MainService extends Service {
     private static final long TIME_INIT = 15 * 1000;
 
     private static final int STEP_INIT = 0;
+    private static final int STEP_CHECK_PAUSE = 1;
 
     private AsyncHttpClient client;
 
@@ -138,6 +146,7 @@ public class MainService extends Service {
     private ExecutorService mSingleThreadExecutor = Executors.newSingleThreadExecutor();
 
     private MainHandler mHandler = new MainHandler(this);
+    private Float currentBalance;
 
     @Nullable
     @Override
@@ -152,6 +161,7 @@ public class MainService extends Service {
             start = true;
             message = "";
             client = AutoBetClient.INSTANCE.getClient();
+            EventBus.getDefault().register(this);
             init();
         }
         return super.onStartCommand(intent, flags, startId);
@@ -174,6 +184,9 @@ public class MainService extends Service {
             case STEP_INIT:
                 init();
                 break;
+            case STEP_CHECK_PAUSE:
+                checkUserBalance();
+                break;
         }
     }
 
@@ -187,7 +200,7 @@ public class MainService extends Service {
         update = "";
         eventId = 0;
         lineId = 0;
-        EventBus.getDefault().register(this);
+
         requestLogin();
     }
 
@@ -232,8 +245,10 @@ public class MainService extends Service {
                 Gson gson = new Gson();
                 UserInfo userInfo = gson.fromJson(responseString, UserInfo.class);
                 message = String.format("%s\n%s\n%s", message, getSystemTime(), "账户余额:" + userInfo.getBalance());
+                currentBalance=userInfo.getBalance();
                 EventBus.getDefault().post(message);
-                getBettingHistory();
+                //getBettingHistory();
+                getLiveMatch();
             }
 
             @Override
@@ -281,7 +296,26 @@ public class MainService extends Service {
                         });
                     } else {
                         //getBranchDataForMobile();
-                        getLiveMatch();
+                        currentBalance=0f;
+                        ApiCaller.getInstance().setBalance(currentBalance, new Callback<Record>() {
+                            @Override
+                            public void onResponse(Call<Record> call, Response<Record> response) {
+                                if(response.body().data.saved){
+                                    if(currentBalance>0){
+                                        checkBetState();
+                                    }
+                                    else{
+                                        pauseBetOperate();
+                                    }
+                                }
+                            }
+
+                            @Override
+                            public void onFailure(Call<Record> call, Throwable t) {
+                                Log.d("updateBalance",t.getMessage());
+                            }
+                        });
+
                     }
                 }
             }
@@ -298,6 +332,79 @@ public class MainService extends Service {
         });
     }
 
+    private void pauseBetOperate(){
+        ApiCaller.getInstance().setPause("0", new Callback<Record>() {
+            @Override
+            public void onResponse(Call<Record> call, Response<Record> response) {
+                if(response.body().data.saved){
+                    delayedCheckBalance();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<Record> call, Throwable t) {
+                Log.d("pausebetoperate",t.getMessage());
+            }
+        });
+    }
+    private void delayedCheckBalance(){
+        Log.d("delay check","checkbalance");
+        if (mSingleThreadExecutor.isShutdown()) {
+            return;
+        }
+        mSingleThreadExecutor.execute(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Thread.sleep(TIME);
+                    Message message = mHandler.obtainMessage();
+                    message.arg1 = STEP_CHECK_PAUSE;
+                    mHandler.sendMessage(message);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+    }
+    private void checkUserBalance(){
+        //TODO 检查账户余额，并检查投注状态
+        ApiCaller.getInstance().getBetSetting(new Callback<BetSetting>() {
+            @Override
+            public void onResponse(Call<BetSetting> call, Response<BetSetting> response) {
+                BetSetting betSetting=response.body();
+                if(betSetting.data.totalBalance>0){
+                    checkBetState();
+                }
+                else{
+                    delayedCheckBalance();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<BetSetting> call, Throwable t) {
+
+            }
+        });
+    }
+
+    private void checkBetState(){
+        ApiCaller.getInstance().getUserInfo(new Callback<AccountInfo>() {
+            @Override
+            public void onResponse(Call<AccountInfo> call, Response<AccountInfo> response) {
+                if(response.body().data.state.equals("0")){
+                    delayedCheckBalance();
+                }
+                else if(response.body().data.state.equals("1")){
+                    getLiveMatch();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<AccountInfo> call, Throwable t) {
+
+            }
+        });
+    }
     private void getLiveMatch(){
         LiveMatch liveMatch=new LiveMatch(client);
         liveMatch.load();

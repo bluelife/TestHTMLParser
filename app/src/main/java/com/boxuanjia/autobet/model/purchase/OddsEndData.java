@@ -8,4 +8,5 @@ public class OddsEndData {
     public String[] data;
     public String eventId;
     public String subEventId;
+    public boolean isEnd;
 }
